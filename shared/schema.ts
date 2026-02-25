@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -128,6 +128,29 @@ export const basSimulations = pgTable("bas_simulations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const quarterEnum = pgEnum("quarter", ["Q1", "Q2", "Q3", "Q4"]);
+
+export const quarterlyAssessments = pgTable("quarterly_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assessmentType: assessmentTypeEnum("assessment_type").notNull(),
+  quarter: quarterEnum("quarter").notNull(),
+  year: integer("year").notNull(),
+  assessmentsCompleted: integer("assessments_completed").notNull().default(0),
+  testCasesExecuted: integer("test_cases_executed").notNull().default(0),
+  critical: integer("critical").notNull().default(0),
+  high: integer("high").notNull().default(0),
+  medium: integer("medium").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const dashboardSettings = pgTable("dashboard_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  team: teamEnum("team").notNull(),
+  settingKey: text("setting_key").notNull(),
+  settingValue: text("setting_value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -161,6 +184,16 @@ export const insertBasSimulationSchema = createInsertSchema(basSimulations).omit
   updatedAt: true,
 });
 
+export const insertQuarterlyAssessmentSchema = createInsertSchema(quarterlyAssessments).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertDashboardSettingSchema = createInsertSchema(dashboardSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertKpiMetric = z.infer<typeof insertKpiMetricSchema>;
@@ -176,9 +209,14 @@ export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type Assessment = typeof assessments.$inferSelect;
 export type InsertBasSimulation = z.infer<typeof insertBasSimulationSchema>;
 export type BasSimulation = typeof basSimulations.$inferSelect;
+export type InsertQuarterlyAssessment = z.infer<typeof insertQuarterlyAssessmentSchema>;
+export type QuarterlyAssessment = typeof quarterlyAssessments.$inferSelect;
+export type InsertDashboardSetting = z.infer<typeof insertDashboardSettingSchema>;
+export type DashboardSetting = typeof dashboardSettings.$inferSelect;
 
 export type Team = "application" | "infrastructure" | "offensive" | "cti" | "bas";
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 export type Trend = "up" | "down" | "stable";
+export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
 export type AssessmentType = "ad" | "cloud" | "external_network" | "internal_network" | "file_sharing" | "osint" | "wifi" | "c2c" | "phishing";
 export type SimulationType = "network_infiltration" | "endpoint_security" | "waf_f5" | "waf_threatx" | "email_gateway" | "ad_assessment" | "cve_critical";

@@ -1,8 +1,8 @@
 import { storage } from "./storage";
-import type { Team, Severity, Trend, InsertKpiMetric, InsertVulnerability, InsertTeamStats, InsertTrendData, AssessmentType, InsertAssessment, SimulationType, InsertBasSimulation } from "@shared/schema";
+import type { Team, Severity, Trend, InsertKpiMetric, InsertVulnerability, InsertTeamStats, InsertTrendData, AssessmentType, InsertAssessment, SimulationType, InsertBasSimulation, Quarter, InsertQuarterlyAssessment } from "@shared/schema";
 
 const TEAMS: Team[] = ["application", "infrastructure", "offensive", "cti", "bas"];
-const SEVERITIES: Severity[] = ["critical", "high", "medium", "low", "info"];
+const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 const MONTHS = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ASSESSMENT_TYPES: AssessmentType[] = ["ad", "cloud", "external_network", "internal_network", "file_sharing", "osint", "wifi", "c2c", "phishing"];
 const SIMULATION_TYPES: SimulationType[] = ["network_infiltration", "endpoint_security", "waf_f5", "waf_threatx", "email_gateway", "ad_assessment", "cve_critical"];
@@ -117,7 +117,6 @@ function generateVulnerabilities(team: Team): InsertVulnerability[] {
     high: { min: 20, max: 80 },
     medium: { min: 50, max: 150 },
     low: { min: 30, max: 100 },
-    info: { min: 20, max: 60 },
   };
 
   for (const month of MONTHS) {
@@ -240,6 +239,55 @@ function generateBasSimulations(): InsertBasSimulation[] {
   return simulations;
 }
 
+function generateQuarterlyAssessments(): InsertQuarterlyAssessment[] {
+  const data: InsertQuarterlyAssessment[] = [];
+  const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
+  const years = [2024, 2025];
+  
+  const assessmentConfig: Record<AssessmentType, { avgCompleted: number; avgTestCases: number; avgVulns: number }> = {
+    ad: { avgCompleted: 3, avgTestCases: 85, avgVulns: 28 },
+    cloud: { avgCompleted: 4, avgTestCases: 120, avgVulns: 35 },
+    external_network: { avgCompleted: 5, avgTestCases: 150, avgVulns: 42 },
+    internal_network: { avgCompleted: 4, avgTestCases: 110, avgVulns: 38 },
+    file_sharing: { avgCompleted: 2, avgTestCases: 45, avgVulns: 18 },
+    osint: { avgCompleted: 6, avgTestCases: 75, avgVulns: 22 },
+    wifi: { avgCompleted: 3, avgTestCases: 60, avgVulns: 15 },
+    c2c: { avgCompleted: 2, avgTestCases: 40, avgVulns: 8 },
+    phishing: { avgCompleted: 4, avgTestCases: 200, avgVulns: 45 },
+  };
+
+  for (const year of years) {
+    for (const quarter of quarters) {
+      for (const type of ASSESSMENT_TYPES) {
+        const config = assessmentConfig[type];
+        const yearFactor = year === 2025 ? 1.15 : 1;
+        const quarterFactor = quarter === "Q1" ? 0.85 : quarter === "Q2" ? 1.0 : quarter === "Q3" ? 1.1 : 1.2;
+        
+        const completed = Math.floor(config.avgCompleted * yearFactor * quarterFactor * (0.8 + Math.random() * 0.4));
+        const testCases = Math.floor(config.avgTestCases * yearFactor * quarterFactor * (0.8 + Math.random() * 0.4));
+        const totalVulns = Math.floor(config.avgVulns * yearFactor * quarterFactor * (0.7 + Math.random() * 0.5));
+        
+        const critical = Math.floor(totalVulns * 0.08);
+        const high = Math.floor(totalVulns * 0.22);
+        const medium = Math.floor(totalVulns * 0.35);
+        
+        data.push({
+          assessmentType: type,
+          quarter,
+          year,
+          assessmentsCompleted: Math.max(1, completed),
+          testCasesExecuted: Math.max(10, testCases),
+          critical: Math.max(0, critical),
+          high: Math.max(0, high),
+          medium: Math.max(0, medium),
+        });
+      }
+    }
+  }
+  
+  return data;
+}
+
 function generateTrendData(team: Team): InsertTrendData[] {
   const trends: InsertTrendData[] = [];
   const metrics = ["Risk Score", "Coverage", "MTTR", "Compliance"];
@@ -336,5 +384,15 @@ export async function seedDatabase() {
       await storage.createBasSimulation(sim);
     }
     console.log("BAS simulation data seeded successfully!");
+  }
+
+  const hasQuarterly = await storage.hasQuarterlyAssessments();
+  if (!hasQuarterly) {
+    console.log("Seeding quarterly assessment data...");
+    const quarterlyData = generateQuarterlyAssessments();
+    for (const qa of quarterlyData) {
+      await storage.createQuarterlyAssessment(qa);
+    }
+    console.log("Quarterly assessment data seeded successfully!");
   }
 }

@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
 import type { Team } from "@shared/schema";
-import { insertKpiMetricSchema, insertVulnerabilitySchema, insertTeamStatsSchema, insertTrendDataSchema } from "@shared/schema";
+import { insertKpiMetricSchema, insertVulnerabilitySchema, insertTeamStatsSchema, insertTrendDataSchema, insertQuarterlyAssessmentSchema } from "@shared/schema";
+import { z } from "zod";
 
 const VALID_TEAMS: Team[] = ["application", "infrastructure", "offensive", "cti", "bas"];
 
@@ -295,6 +296,72 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching assessments:", error);
       res.status(500).json({ error: "Failed to fetch assessments" });
+    }
+  });
+
+  // Quarterly Assessments endpoints (new Offensive Security dashboard)
+  app.get("/api/quarterly-assessments", async (req, res) => {
+    try {
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const data = year 
+        ? await storage.getQuarterlyAssessmentsByYear(year)
+        : await storage.getAllQuarterlyAssessments();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching quarterly assessments:", error);
+      res.status(500).json({ error: "Failed to fetch quarterly assessments" });
+    }
+  });
+
+  app.patch("/api/quarterly-assessments/:id", async (req, res) => {
+    try {
+      const updateSchema = insertQuarterlyAssessmentSchema.partial();
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.errors });
+      }
+      const result = await storage.updateQuarterlyAssessment(req.params.id, parsed.data);
+      if (!result) {
+        return res.status(404).json({ error: "Quarterly assessment not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating quarterly assessment:", error);
+      res.status(500).json({ error: "Failed to update quarterly assessment" });
+    }
+  });
+
+  // Dashboard Settings endpoints
+  app.get("/api/dashboard-settings", async (req, res) => {
+    try {
+      const team = req.query.team as Team;
+      if (!team || !VALID_TEAMS.includes(team)) {
+        return res.status(400).json({ error: "Valid team parameter required" });
+      }
+      const settings = await storage.getDashboardSettings(team);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching dashboard settings:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard settings" });
+    }
+  });
+
+  app.put("/api/dashboard-settings", async (req, res) => {
+    try {
+      const schema = z.object({
+        team: z.enum(["application", "infrastructure", "offensive", "cti", "bas"]),
+        settingKey: z.string().min(1),
+        settingValue: z.string().min(1),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.errors });
+      }
+      const result = await storage.upsertDashboardSetting(parsed.data.team, parsed.data.settingKey, parsed.data.settingValue);
+      res.json(result);
+    } catch (error) {
+      console.error("Error saving dashboard setting:", error);
+      res.status(500).json({ error: "Failed to save dashboard setting" });
     }
   });
 

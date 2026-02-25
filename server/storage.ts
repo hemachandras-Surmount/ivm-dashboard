@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { 
   users, 
   kpiMetrics, 
@@ -8,6 +8,8 @@ import {
   trendData,
   assessments,
   basSimulations,
+  quarterlyAssessments,
+  dashboardSettings,
   type User, 
   type InsertUser,
   type KpiMetric,
@@ -23,6 +25,10 @@ import {
   type InsertAssessment,
   type BasSimulation,
   type InsertBasSimulation,
+  type QuarterlyAssessment,
+  type InsertQuarterlyAssessment,
+  type DashboardSetting,
+  type InsertDashboardSetting,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -66,6 +72,16 @@ export interface IStorage {
   createBasSimulation(simulation: InsertBasSimulation): Promise<BasSimulation>;
   updateBasSimulation(id: string, simulation: Partial<InsertBasSimulation>): Promise<BasSimulation | undefined>;
   deleteAllBasSimulations(): Promise<boolean>;
+  
+  getAllQuarterlyAssessments(): Promise<QuarterlyAssessment[]>;
+  getQuarterlyAssessmentsByYear(year: number): Promise<QuarterlyAssessment[]>;
+  createQuarterlyAssessment(qa: InsertQuarterlyAssessment): Promise<QuarterlyAssessment>;
+  updateQuarterlyAssessment(id: string, qa: Partial<InsertQuarterlyAssessment>): Promise<QuarterlyAssessment | undefined>;
+  deleteAllQuarterlyAssessments(): Promise<boolean>;
+  hasQuarterlyAssessments(): Promise<boolean>;
+  
+  getDashboardSettings(team: Team): Promise<DashboardSetting[]>;
+  upsertDashboardSetting(team: Team, settingKey: string, settingValue: string): Promise<DashboardSetting>;
   
   hasData(): Promise<boolean>;
   hasBasSimulations(): Promise<boolean>;
@@ -231,6 +247,56 @@ export class DatabaseStorage implements IStorage {
   async deleteAllBasSimulations(): Promise<boolean> {
     await db.delete(basSimulations);
     return true;
+  }
+
+  async getAllQuarterlyAssessments(): Promise<QuarterlyAssessment[]> {
+    return db.select().from(quarterlyAssessments);
+  }
+
+  async getQuarterlyAssessmentsByYear(year: number): Promise<QuarterlyAssessment[]> {
+    return db.select().from(quarterlyAssessments).where(eq(quarterlyAssessments.year, year));
+  }
+
+  async createQuarterlyAssessment(qa: InsertQuarterlyAssessment): Promise<QuarterlyAssessment> {
+    const [result] = await db.insert(quarterlyAssessments).values(qa).returning();
+    return result;
+  }
+
+  async updateQuarterlyAssessment(id: string, qa: Partial<InsertQuarterlyAssessment>): Promise<QuarterlyAssessment | undefined> {
+    const [result] = await db.update(quarterlyAssessments).set(qa).where(eq(quarterlyAssessments.id, id)).returning();
+    return result;
+  }
+
+  async deleteAllQuarterlyAssessments(): Promise<boolean> {
+    await db.delete(quarterlyAssessments);
+    return true;
+  }
+
+  async hasQuarterlyAssessments(): Promise<boolean> {
+    const rows = await db.select().from(quarterlyAssessments).limit(1);
+    return rows.length > 0;
+  }
+
+  async getDashboardSettings(team: Team): Promise<DashboardSetting[]> {
+    return db.select().from(dashboardSettings).where(eq(dashboardSettings.team, team));
+  }
+
+  async upsertDashboardSetting(team: Team, settingKey: string, settingValue: string): Promise<DashboardSetting> {
+    const [existing] = await db.select().from(dashboardSettings)
+      .where(and(eq(dashboardSettings.team, team), eq(dashboardSettings.settingKey, settingKey)));
+    
+    if (existing) {
+      const [result] = await db.update(dashboardSettings)
+        .set({ settingValue, updatedAt: new Date() })
+        .where(eq(dashboardSettings.id, existing.id))
+        .returning();
+      return result;
+    } else {
+      const [result] = await db.insert(dashboardSettings)
+        .values({ team, settingKey, settingValue })
+        .returning();
+      return result;
+    }
   }
 
   async hasData(): Promise<boolean> {

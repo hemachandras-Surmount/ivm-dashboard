@@ -7,9 +7,11 @@ import { SeverityChart, SeverityChartSkeleton } from "@/components/severity-char
 import { TrendChart, TrendChartSkeleton } from "@/components/trend-chart";
 import { BarChartCard, BarChartSkeleton } from "@/components/bar-chart";
 import { TeamHeader, getTeamConfig } from "@/components/team-header";
-import { AssessmentComparison } from "@/components/assessment-comparison";
 import { MonthlyComparison, MonthlyComparisonSkeleton } from "@/components/monthly-comparison";
 import { SimulationComparison } from "@/components/simulation-comparison";
+import { QuarterlyAssessmentDashboard } from "@/components/quarterly-assessment-dashboard";
+import { AdminSectionWrapper } from "@/components/admin-section-wrapper";
+import { useSectionSettings } from "@/hooks/use-section-settings";
 import { AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +34,7 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
     queryKey: ["/api/teams", team],
   });
   const { toast } = useToast();
+  const sectionSettings = useSectionSettings(team);
 
   const config = getTeamConfig(team);
 
@@ -121,7 +124,13 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
     return acc;
   }, {} as Record<string, { name: string; found: number; resolved: number }>) || {};
 
-  const barChartData = Object.values(monthlyData).slice(-6);
+  const MONTH_ORDER: Record<string, number> = {
+    Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+    Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+  };
+  const barChartData = Object.values(monthlyData)
+    .sort((a, b) => (MONTH_ORDER[a.name] || 0) - (MONTH_ORDER[b.name] || 0))
+    .slice(-3);
 
   const renderKpiCards = (kpis: KpiMetric[]) => (
     kpis.map((kpi) => (
@@ -142,6 +151,18 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
     ))
   );
 
+  const defaultTitles: Record<string, string> = {
+    key_metrics: "Key Metrics",
+    security_overview: `${config.name} Overview`,
+    quarterly_assessments: "Quarterly Assessments",
+    monthly_comparison: "Monthly Comparison",
+    simulations: "BAS Simulations",
+    severity_distribution: `${config.name} Severity Distribution`,
+    monthly_findings: "Monthly Findings Trend",
+    metrics_over_time: `${config.name} Metrics Over Time`,
+    additional_metrics: "Additional Metrics",
+  };
+
   return (
     <div className="space-y-6">
       <TeamHeader 
@@ -152,88 +173,190 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
         onToggleAdmin={() => setIsAdmin(!isAdmin)}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {isLoading ? (
-          [...Array(4)].map((_, i) => <KpiCardSkeleton key={i} />)
-        ) : (
-          renderKpiCards(data?.kpis.slice(0, 4) || [])
-        )}
-      </div>
+      <AdminSectionWrapper
+        sectionKey="key_metrics"
+        defaultTitle={defaultTitles.key_metrics}
+        customTitle={sectionSettings.titles.key_metrics}
+        visible={sectionSettings.isVisible("key_metrics")}
+        isAdmin={isAdmin}
+        onToggleVisibility={sectionSettings.toggleVisibility}
+        onUpdateTitle={sectionSettings.updateTitle}
+        showTitle
+      >
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {isLoading ? (
+            [...Array(4)].map((_, i) => <KpiCardSkeleton key={i} />)
+          ) : (
+            renderKpiCards(data?.kpis.slice(0, 4) || [])
+          )}
+        </div>
+      </AdminSectionWrapper>
 
-      {isLoading ? (
-        <StatsOverviewSkeleton />
-      ) : data?.stats ? (
-        <StatsOverview 
-          stats={data.stats} 
-          teamName={config.name}
-          teamColor={config.bgColor}
-          isAdmin={isAdmin}
-          onSave={(updates) => statsMutation.mutate({ id: data.stats.id, updates })}
-          isSaving={statsMutation.isPending}
-        />
-      ) : null}
+      <AdminSectionWrapper
+        sectionKey="security_overview"
+        defaultTitle={defaultTitles.security_overview}
+        customTitle={sectionSettings.titles.security_overview}
+        visible={sectionSettings.isVisible("security_overview")}
+        isAdmin={isAdmin}
+        onToggleVisibility={sectionSettings.toggleVisibility}
+        onUpdateTitle={sectionSettings.updateTitle}
+        showTitle
+      >
+        {isLoading ? (
+          <StatsOverviewSkeleton />
+        ) : data?.stats ? (
+          <StatsOverview 
+            stats={data.stats} 
+            team={team}
+            teamName={config.name}
+            teamColor={config.bgColor}
+            isAdmin={isAdmin}
+            onSave={(updates) => statsMutation.mutate({ id: data.stats.id, updates })}
+            isSaving={statsMutation.isPending}
+          />
+        ) : null}
+      </AdminSectionWrapper>
 
       {team === "offensive" && (
-        <AssessmentComparison />
+        <AdminSectionWrapper
+          sectionKey="quarterly_assessments"
+          defaultTitle={defaultTitles.quarterly_assessments}
+          customTitle={sectionSettings.titles.quarterly_assessments}
+          visible={sectionSettings.isVisible("quarterly_assessments")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          <QuarterlyAssessmentDashboard isAdmin={isAdmin} />
+        </AdminSectionWrapper>
       )}
 
       {(team === "application" || team === "infrastructure" || team === "cti") && (
-        isLoading ? (
-          <MonthlyComparisonSkeleton />
-        ) : data?.vulnerabilities && data?.trends ? (
-          <MonthlyComparison 
-            team={team}
-            vulnerabilities={data.vulnerabilities}
-            trends={data.trends}
-            isAdmin={isAdmin}
-            onSaveVulnerabilities={(batch) => vulnMutation.mutateAsync(batch)}
-            onSaveTrends={(batch) => trendMutation.mutateAsync(batch)}
-            isSaving={vulnMutation.isPending || trendMutation.isPending}
-          />
-        ) : null
+        <AdminSectionWrapper
+          sectionKey="monthly_comparison"
+          defaultTitle={defaultTitles.monthly_comparison}
+          customTitle={sectionSettings.titles.monthly_comparison}
+          visible={sectionSettings.isVisible("monthly_comparison")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          {isLoading ? (
+            <MonthlyComparisonSkeleton />
+          ) : data?.vulnerabilities && data?.trends ? (
+            <MonthlyComparison 
+              team={team}
+              vulnerabilities={data.vulnerabilities}
+              trends={data.trends}
+              isAdmin={isAdmin}
+              onSaveVulnerabilities={(batch) => vulnMutation.mutateAsync(batch)}
+              onSaveTrends={(batch) => trendMutation.mutateAsync(batch)}
+              isSaving={vulnMutation.isPending || trendMutation.isPending}
+            />
+          ) : null}
+        </AdminSectionWrapper>
       )}
 
       {team === "bas" && (
-        <SimulationComparison />
+        <AdminSectionWrapper
+          sectionKey="simulations"
+          defaultTitle={defaultTitles.simulations}
+          customTitle={sectionSettings.titles.simulations}
+          visible={sectionSettings.isVisible("simulations")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          <SimulationComparison />
+        </AdminSectionWrapper>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        {isLoading ? (
-          <>
+        <AdminSectionWrapper
+          sectionKey="severity_distribution"
+          defaultTitle={defaultTitles.severity_distribution}
+          customTitle={sectionSettings.titles.severity_distribution}
+          visible={sectionSettings.isVisible("severity_distribution")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          {isLoading ? (
             <SeverityChartSkeleton />
-            <BarChartSkeleton />
-          </>
-        ) : (
-          <>
+          ) : (
             <SeverityChart 
               data={data?.vulnerabilities || []} 
-              title={`${config.name} Severity Distribution`}
+              title={sectionSettings.getTitle("severity_distribution", `${config.name} Severity Distribution`)}
             />
+          )}
+        </AdminSectionWrapper>
+
+        <AdminSectionWrapper
+          sectionKey="monthly_findings"
+          defaultTitle={defaultTitles.monthly_findings}
+          customTitle={sectionSettings.titles.monthly_findings}
+          visible={sectionSettings.isVisible("monthly_findings")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          {isLoading ? (
+            <BarChartSkeleton />
+          ) : (
             <BarChartCard
-              title="Monthly Findings Trend"
+              title={sectionSettings.getTitle("monthly_findings", "Monthly Findings Trend")}
               data={barChartData}
               bars={[
                 { dataKey: "found", color: "hsl(0 84% 42%)", name: "Found" },
                 { dataKey: "resolved", color: "hsl(142 76% 36%)", name: "Resolved" },
               ]}
             />
-          </>
-        )}
+          )}
+        </AdminSectionWrapper>
       </div>
 
-      {isLoading ? (
-        <TrendChartSkeleton />
-      ) : data?.trends && data.trends.length > 0 ? (
-        <TrendChart 
-          data={data.trends}
-          title={`${config.name} Metrics Over Time`}
-        />
-      ) : null}
+      {(team === "application" || team === "infrastructure") && (
+        <AdminSectionWrapper
+          sectionKey="metrics_over_time"
+          defaultTitle={defaultTitles.metrics_over_time}
+          customTitle={sectionSettings.titles.metrics_over_time}
+          visible={sectionSettings.isVisible("metrics_over_time")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          {isLoading ? (
+            <TrendChartSkeleton />
+          ) : data?.trends && data.trends.length > 0 ? (
+            <TrendChart 
+              data={data.trends}
+              title={sectionSettings.getTitle("metrics_over_time", `${config.name} Metrics Over Time`)}
+            />
+          ) : null}
+        </AdminSectionWrapper>
+      )}
 
       {data?.kpis && data.kpis.length > 4 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {renderKpiCards(data.kpis.slice(4))}
-        </div>
+        <AdminSectionWrapper
+          sectionKey="additional_metrics"
+          defaultTitle={defaultTitles.additional_metrics}
+          customTitle={sectionSettings.titles.additional_metrics}
+          visible={sectionSettings.isVisible("additional_metrics")}
+          isAdmin={isAdmin}
+          onToggleVisibility={sectionSettings.toggleVisibility}
+          onUpdateTitle={sectionSettings.updateTitle}
+          showTitle
+        >
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {renderKpiCards(data.kpis.slice(4))}
+          </div>
+        </AdminSectionWrapper>
       )}
     </div>
   );

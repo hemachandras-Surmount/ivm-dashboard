@@ -19,14 +19,22 @@ const SEVERITY_COLORS: Record<string, string> = {
   high: "hsl(24 95% 45%)",
   medium: "hsl(48 96% 53%)",
   low: "hsl(142 76% 36%)",
-  info: "hsl(217 91% 45%)",
 };
 
-const SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"];
+const SEVERITY_ORDER = ["critical", "high", "medium", "low"];
 
 export function SeverityChart({ data, title = "Vulnerability Distribution" }: SeverityChartProps) {
+  const MONTH_ORDER: Record<string, number> = {
+    Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+    Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+  };
+  const months = Array.from(new Set(data.map((d) => d.month)))
+    .sort((a, b) => (MONTH_ORDER[a] || 0) - (MONTH_ORDER[b] || 0));
+  const latestMonth = months[months.length - 1];
+  const latestData = latestMonth ? data.filter((d) => d.month === latestMonth) : data;
+
   const aggregatedData = SEVERITY_ORDER.map((severity) => {
-    const items = data.filter((d) => d.severity === severity);
+    const items = latestData.filter((d) => d.severity === severity);
     const totalCount = items.reduce((sum, item) => sum + item.count, 0);
     const resolvedCount = items.reduce((sum, item) => sum + item.resolvedCount, 0);
     return {

@@ -4,10 +4,11 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pencil, Check, X } from "lucide-react";
-import type { TeamStats } from "@shared/schema";
+import type { Team, TeamStats } from "@shared/schema";
 
 interface StatsOverviewProps {
   stats: TeamStats;
+  team: Team;
   teamName: string;
   teamColor: string;
   isAdmin?: boolean;
@@ -26,7 +27,7 @@ type EditableStatsFields = {
   complianceScore: string;
 };
 
-export function StatsOverview({ stats, teamName, teamColor, isAdmin = false, onSave, isSaving = false }: StatsOverviewProps) {
+export function StatsOverview({ stats, team, teamName, teamColor, isAdmin = false, onSave, isSaving = false }: StatsOverviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editFields, setEditFields] = useState<EditableStatsFields>({
     totalAssets: String(stats.totalAssets),

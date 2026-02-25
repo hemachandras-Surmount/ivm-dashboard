@@ -30,7 +30,7 @@ const TEAM_CONFIG: Record<Team, {
 }> = {
   application: {
     name: "Application Security",
-    description: "SAST, DAST, SCA, and secure code review metrics",
+    description: "",
     icon: Shield,
     color: "text-chart-1",
     bgColor: "bg-chart-1/10",
@@ -79,9 +79,11 @@ export function TeamHeader({ team, onRefresh, isRefreshing, isAdmin, onToggleAdm
           <h1 className="text-2xl font-bold" data-testid={`text-team-title-${team}`}>
             {config.name}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {config.description}
-          </p>
+          {config.description && (
+            <p className="text-sm text-muted-foreground">
+              {config.description}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
