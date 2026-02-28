@@ -267,6 +267,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/trends", async (req, res) => {
+    try {
+      const parsed = insertTrendDataSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid trend data", details: parsed.error.errors });
+      }
+      const trend = await storage.createTrendData(parsed.data);
+      res.status(201).json(trend);
+    } catch (error) {
+      console.error("Error creating trend data:", error);
+      res.status(500).json({ error: "Failed to create trend data" });
+    }
+  });
+
   app.patch("/api/trends/:id", async (req, res) => {
     try {
       const existing = await storage.getTrendDataById(req.params.id);
@@ -414,9 +428,10 @@ export async function registerRoutes(
         basSimulations = await storage.getAllBasSimulations();
       } else if (["application", "infrastructure", "cti"].includes(team)) {
         // Build 3-month comparison from vulnerabilities
+        // Start from last completed month (previous month), not current month
         const now = new Date();
         const months = [];
-        for (let i = 0; i < 3; i++) {
+        for (let i = 1; i <= 3; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           months.push({
             month: d.toLocaleDateString('en-US', { month: 'short' }),
@@ -427,8 +442,7 @@ export async function registerRoutes(
         
         monthlyComparison = months.map((m, idx) => {
           const monthVulns = vulnerabilities.filter(v => {
-            const vDate = new Date(v.month);
-            return vDate.getMonth() + 1 === m.monthNum && vDate.getFullYear() === m.year;
+            return v.month === m.month && v.year === m.year;
           });
           const total = monthVulns.reduce((sum, v) => sum + v.count, 0);
           const resolved = monthVulns.reduce((sum, v) => sum + v.resolvedCount, 0);
@@ -444,17 +458,21 @@ export async function registerRoutes(
         }).reverse();
       }
 
+      const MONTH_INDEX: Record<string, number> = {
+        Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+        Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+      };
       const monthlyFindings = vulnerabilities.reduce((acc, v) => {
-        const key = v.month;
+        const key = `${v.year}-${v.month}`;
         if (!acc[key]) {
-          acc[key] = { month: key, found: 0, resolved: 0 };
+          acc[key] = { month: v.month, year: v.year, found: 0, resolved: 0 };
         }
         acc[key].found += v.count;
         acc[key].resolved += v.resolvedCount;
         return acc;
-      }, {} as Record<string, { month: string; found: number; resolved: number }>);
+      }, {} as Record<string, { month: string; year: number; found: number; resolved: number }>);
       const monthlyFindingsArray = Object.values(monthlyFindings)
-        .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+        .sort((a, b) => a.year !== b.year ? a.year - b.year : (MONTH_INDEX[a.month] || 0) - (MONTH_INDEX[b.month] || 0))
         .slice(-6);
 
       const trendMetrics = trends.map(t => ({

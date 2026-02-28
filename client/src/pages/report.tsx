@@ -101,7 +101,8 @@ export default function Report() {
   const reportRef = useRef<HTMLDivElement>(null);
 
   const { data: report, isLoading, error } = useQuery<ReportData>({
-    queryKey: [`/api/report/${selectedTeam}`],
+    queryKey: ["/api/report", selectedTeam],
+    staleTime: 0,
   });
 
   const handlePrint = () => {
@@ -946,11 +947,13 @@ export default function Report() {
   };
 
   const handleExportPdf = async () => {
-    if (!report) return;
     setIsExporting(true);
     try {
+      const res = await fetch(`/api/report/${selectedTeam}`);
+      if (!res.ok) throw new Error("Failed to fetch report data");
+      const freshReport: ReportData = await res.json();
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      renderTeamReport(doc, report, teamLabel, 15, true);
+      renderTeamReport(doc, freshReport, teamLabel, 15, true);
       addPdfFooter(doc);
       doc.save(`${teamLabel.replace(/\s+/g, '_')}_Security_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {

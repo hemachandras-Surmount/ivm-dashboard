@@ -46,6 +46,7 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", team] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "KPI updated", description: "The KPI has been saved and charts refreshed." });
     },
     onError: (err: Error) => {
@@ -61,6 +62,7 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", team] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/team-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "Stats updated", description: "Team statistics saved and charts refreshed." });
     },
     onError: (err: Error) => {
@@ -76,6 +78,7 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", team] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vulnerabilities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "Vulnerabilities updated", description: "Monthly data saved and charts refreshed." });
     },
     onError: (err: Error) => {
@@ -91,6 +94,7 @@ export default function TeamDashboard({ team }: TeamDashboardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", team] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "Metrics updated", description: "Trend data saved and charts refreshed." });
     },
     onError: (err: Error) => {

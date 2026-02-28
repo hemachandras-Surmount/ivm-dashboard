@@ -18,17 +18,19 @@ interface MonthlyComparisonProps {
 
 const MONTH_ORDER = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function getLastThreeMonthsFromData(vulnerabilities: Vulnerability[]): string[] {
-  const monthSet = new Set<string>();
-  vulnerabilities.forEach(v => monthSet.add(v.month));
-  
-  const sortedMonths = Array.from(monthSet).sort((a, b) => {
-    const aIdx = MONTH_ORDER.indexOf(a);
-    const bIdx = MONTH_ORDER.indexOf(b);
-    return aIdx - bIdx;
-  });
-  
-  return sortedMonths.slice(-3);
+interface MonthYear {
+  month: string;
+  year: number;
+}
+
+function getLastThreeCompletedMonths(): MonthYear[] {
+  const now = new Date();
+  const months: MonthYear[] = [];
+  for (let i = 3; i >= 1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ month: MONTH_ORDER[d.getMonth()], year: d.getFullYear() });
+  }
+  return months;
 }
 
 export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = false, onSaveVulnerabilities, onSaveTrends, isSaving = false }: MonthlyComparisonProps) {
@@ -37,29 +39,27 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
   const [vulnEdits, setVulnEdits] = useState<Record<string, { count: string; resolvedCount: string }>>({});
   const [trendEdits, setTrendEdits] = useState<Record<string, string>>({});
 
-  const lastThreeMonths = getLastThreeMonthsFromData(vulnerabilities);
+  const lastThreeMonths = getLastThreeCompletedMonths();
   
-  if (lastThreeMonths.length < 3) {
-    return null;
-  }
-  
-  const monthlyVulnData = lastThreeMonths.map(month => {
-    const monthVulns = vulnerabilities.filter(v => v.month === month);
+  const monthlyVulnData = lastThreeMonths.map(my => {
+    const monthVulns = vulnerabilities.filter(v => v.month === my.month && v.year === my.year);
     const total = monthVulns.reduce((sum, v) => sum + v.count, 0);
     const resolved = monthVulns.reduce((sum, v) => sum + v.resolvedCount, 0);
     const critical = monthVulns.filter(v => v.severity === "critical").reduce((sum, v) => sum + v.count, 0);
     const high = monthVulns.filter(v => v.severity === "high").reduce((sum, v) => sum + v.count, 0);
-    return { month, total, resolved, open: total - resolved, critical, high, vulns: monthVulns };
+    return { month: my.month, year: my.year, label: my.month, total, resolved, open: total - resolved, critical, high, vulns: monthVulns };
   });
 
-  const monthlyTrendData = lastThreeMonths.map(month => {
-    const monthTrends = trends.filter(t => t.date === month);
+  const monthlyTrendData = lastThreeMonths.map(my => {
+    const monthTrends = trends.filter(t => t.date === my.month);
     const riskScore = monthTrends.find(t => t.metricName === "Risk Score");
     const coverage = monthTrends.find(t => t.metricName === "Coverage");
     const mttr = monthTrends.find(t => t.metricName === "MTTR");
     const compliance = monthTrends.find(t => t.metricName === "Compliance");
     return { 
-      month, 
+      month: my.month, 
+      year: my.year,
+      label: my.month,
       riskScore: riskScore?.value || 0,
       coverage: coverage?.value || 0,
       mttr: mttr?.value || 0,
@@ -104,8 +104,8 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
 
   const handleStartEditMetrics = () => {
     const edits: Record<string, string> = {};
-    lastThreeMonths.forEach(month => {
-      const td = monthlyTrendData.find(t => t.month === month);
+    lastThreeMonths.forEach(my => {
+      const td = monthlyTrendData.find(t => t.month === my.month && t.year === my.year);
       if (td) {
         if (td.riskScoreId) edits[td.riskScoreId] = String(td.riskScore);
         if (td.coverageId) edits[td.coverageId] = String(td.coverage);
@@ -145,7 +145,7 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {monthlyVulnData.map((data, idx) => (
             <MonthCard 
-              key={data.month} 
+              key={`${data.month}-${data.year}`} 
               data={data} 
               trendData={monthlyTrendData[idx]}
               isCurrent={idx === 2}
@@ -188,12 +188,12 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
           </div>
           {editingMetrics ? (
             <div className="space-y-4">
-              {lastThreeMonths.map(month => {
-                const td = monthlyTrendData.find(t => t.month === month);
+              {lastThreeMonths.map(my => {
+                const td = monthlyTrendData.find(t => t.month === my.month && t.year === my.year);
                 if (!td) return null;
                 return (
-                  <div key={month} className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-sm font-medium mb-2">{month}</p>
+                  <div key={`${my.month}-${my.year}`} className="p-3 rounded-lg border bg-muted/30">
+                    <p className="text-sm font-medium mb-2">{my.month}</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {td.riskScoreId && (
                         <div className="space-y-1">
@@ -204,7 +204,7 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
                             value={trendEdits[td.riskScoreId] || ""}
                             onChange={(e) => setTrendEdits(prev => ({ ...prev, [td.riskScoreId!]: e.target.value }))}
                             className="h-8 text-sm"
-                            data-testid={`input-risk-score-${month.toLowerCase()}`}
+                            data-testid={`input-risk-score-${my.month.toLowerCase()}`}
                           />
                         </div>
                       )}
@@ -217,7 +217,7 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
                             value={trendEdits[td.coverageId] || ""}
                             onChange={(e) => setTrendEdits(prev => ({ ...prev, [td.coverageId!]: e.target.value }))}
                             className="h-8 text-sm"
-                            data-testid={`input-coverage-${month.toLowerCase()}`}
+                            data-testid={`input-coverage-${my.month.toLowerCase()}`}
                           />
                         </div>
                       )}
@@ -230,7 +230,7 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
                             value={trendEdits[td.mttrId] || ""}
                             onChange={(e) => setTrendEdits(prev => ({ ...prev, [td.mttrId!]: e.target.value }))}
                             className="h-8 text-sm"
-                            data-testid={`input-mttr-${month.toLowerCase()}`}
+                            data-testid={`input-mttr-${my.month.toLowerCase()}`}
                           />
                         </div>
                       )}
@@ -243,7 +243,7 @@ export function MonthlyComparison({ team, vulnerabilities, trends, isAdmin = fal
                             value={trendEdits[td.complianceId] || ""}
                             onChange={(e) => setTrendEdits(prev => ({ ...prev, [td.complianceId!]: e.target.value }))}
                             className="h-8 text-sm"
-                            data-testid={`input-compliance-${month.toLowerCase()}`}
+                            data-testid={`input-compliance-${my.month.toLowerCase()}`}
                           />
                         </div>
                       )}

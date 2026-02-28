@@ -3,7 +3,7 @@ import type { Team, Severity, Trend, InsertKpiMetric, InsertVulnerability, Inser
 
 const TEAMS: Team[] = ["application", "infrastructure", "offensive", "cti", "bas"];
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
-const MONTHS = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan"];
 const ASSESSMENT_TYPES: AssessmentType[] = ["ad", "cloud", "external_network", "internal_network", "file_sharing", "osint", "wifi", "c2c", "phishing"];
 const SIMULATION_TYPES: SimulationType[] = ["network_infiltration", "endpoint_security", "waf_f5", "waf_threatx", "email_gateway", "ad_assessment", "cve_critical"];
 
@@ -110,7 +110,6 @@ const TEAM_STATS: Record<Team, InsertTeamStats> = {
 
 function generateVulnerabilities(team: Team): InsertVulnerability[] {
   const vulns: InsertVulnerability[] = [];
-  const year = 2025;
   
   const baseCounts: Record<Severity, { min: number; max: number }> = {
     critical: { min: 5, max: 25 },
@@ -120,6 +119,7 @@ function generateVulnerabilities(team: Team): InsertVulnerability[] {
   };
 
   for (const month of MONTHS) {
+    const year = month === "Jan" ? 2026 : 2025;
     for (const severity of SEVERITIES) {
       const base = baseCounts[severity];
       const count = Math.floor(Math.random() * (base.max - base.min + 1)) + base.min;

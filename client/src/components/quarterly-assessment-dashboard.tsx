@@ -111,6 +111,7 @@ export function QuarterlyAssessmentDashboard({ isAdmin }: QuarterlyAssessmentDas
       queryClient.invalidateQueries({ queryKey: ["/api/quarterly-assessments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams", "offensive"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "Assessment data updated", description: "Changes saved and charts refreshed." });
     },
     onError: (err: Error) => {

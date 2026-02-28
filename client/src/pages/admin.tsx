@@ -143,6 +143,7 @@ function KpiCard({ kpi }: { kpi: KpiMetric }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/kpis"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "KPI deleted successfully" });
     },
     onError: () => {
@@ -245,6 +246,7 @@ function KpiFormDialog({ mode, kpi }: KpiFormDialogProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/kpis"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: mode === "create" ? "KPI created successfully" : "KPI updated successfully" });
       setOpen(false);
       if (mode === "create") {
@@ -434,6 +436,7 @@ function TeamStatsCard({ stats }: { stats: TeamStats }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/report"] });
       toast({ title: "Team stats updated successfully" });
       setEditing(false);
     },

@@ -27,12 +27,14 @@ A comprehensive, data-driven vulnerability management dashboard designed for ent
 
 - **Multi-Team Dashboard**: Overview and individual dashboards for 5 security teams
 - **Real-Time KPIs**: Track key performance indicators with targets, trends, and progress bars
-- **Vulnerability Tracking**: Severity-based vulnerability distribution (Critical, High, Medium, Low, Info)
-- **Trend Analysis**: 3-month historical comparison with resolution rates
+- **Vulnerability Tracking**: Severity-based vulnerability distribution (Critical, High, Medium, Low)
+- **Trend Analysis**: Calendar-based 3-month comparison showing the last 3 completed months with automatic month rollover
 - **Assessment Comparison**: Offensive Security current vs. previous cycle comparisons across 9 assessment types
 - **BAS Simulations**: Breach and Attack Simulation tracking with prevention/detection rates for 7 simulation types
 - **Admin Interface**: Full CRUD management of KPIs and team statistics
 - **Inline Editing**: Admin Mode enables direct editing on team dashboards for 3-month vulnerability counts, resolution rates, and key metric trends (Risk Score, Coverage, MTTR, Compliance) with batched save operations
+- **Section Management**: Admin Mode provides hide/restore/rename controls for every dashboard section, persisted per team
+- **Live Report Data**: PDF reports always fetch the latest data from the database, reflecting any admin edits immediately
 - **PDF Reports**: Individual and consolidated team reports with embedded charts
   - KPI progress bar charts
   - Severity distribution bar charts
@@ -196,7 +198,9 @@ Running `npm run db:push` reads the schema from `shared/schema.ts` and creates t
 - `team_stats` - Aggregate team statistics
 - `trend_data` - Historical metric data
 - `assessments` - Offensive Security assessment tracking
+- `quarterly_assessments` - Quarterly assessment data with year-over-year comparison
 - `bas_simulations` - BAS simulation performance data
+- `dashboard_settings` - Per-team section visibility and title customizations
 
 ### Automatic Data Seeding
 
@@ -258,6 +262,7 @@ ivm-dashboard/
 │   ├── src/
 │   │   ├── components/              # Reusable UI components
 │   │   │   ├── ui/                  # shadcn/ui base components
+│   │   │   ├── admin-section-wrapper.tsx # Section hide/restore/rename controls
 │   │   │   ├── app-sidebar.tsx      # Navigation sidebar
 │   │   │   ├── assessment-comparison.tsx  # Offensive Security assessments
 │   │   │   ├── bar-chart.tsx        # Recharts bar chart wrapper
@@ -270,7 +275,8 @@ ivm-dashboard/
 │   │   │   ├── theme-toggle.tsx     # Dark/light mode toggle
 │   │   │   └── trend-chart.tsx      # Recharts line chart wrapper
 │   │   ├── hooks/                   # Custom React hooks
-│   │   │   └── use-toast.ts         # Toast notification hook
+│   │   │   ├── use-toast.ts         # Toast notification hook
+│   │   │   └── use-section-settings.ts  # Admin section visibility/title hook
 │   │   ├── lib/                     # Utilities
 │   │   │   ├── queryClient.ts       # TanStack Query configuration
 │   │   │   └── utils.ts            # Helper functions
@@ -346,6 +352,7 @@ ivm-dashboard/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/trends` | List all trend data (optional `?team=` filter) |
+| POST | `/api/trends` | Create a new trend data record |
 | PATCH | `/api/trends/:id` | Update a trend data record |
 | GET | `/api/report/:team` | Generate comprehensive monthly report |
 
@@ -354,6 +361,15 @@ ivm-dashboard/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/assessments` | Get all assessment data with cycle comparison |
+| GET | `/api/quarterly-assessments` | Get quarterly assessment data (optional `?year=` filter) |
+| PATCH | `/api/quarterly-assessments/:id` | Update a quarterly assessment record |
+
+### Dashboard Settings
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dashboard-settings` | Get dashboard settings for a team (`?team=` filter) |
+| PUT | `/api/dashboard-settings` | Create or update a dashboard setting |
 
 ---
 
